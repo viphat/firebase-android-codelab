@@ -73,6 +73,8 @@ public class MainActivity extends AppCompatActivity
     private DatabaseReference mFirebaseDatabaseReference;
     private FirebaseRecyclerAdapter<FriendlyMessage, MessageViewHolder> mFirebaseAdapter;
     private FirebaseRemoteConfig mFirebaseRemoteConfig;
+    private FirebaseAnalytics mFirebaseAnalytics;
+    private AdView mAdView;
 
     public static class MessageViewHolder extends RecyclerView.ViewHolder {
         public TextView messageTextView;
@@ -132,6 +134,7 @@ public class MainActivity extends AppCompatActivity
         mGoogleApiClient = new GoogleApiClient.Builder(this)
                 .enableAutoManage(this /* FragmentActivity */, this /* OnConnectionFailedListener */)
                 .addApi(Auth.GOOGLE_SIGN_IN_API)
+                .addApi(AppInvite.API)
                 .build();
 
         // Initialize ProgressBar and RecyclerView.
@@ -140,6 +143,8 @@ public class MainActivity extends AppCompatActivity
         mLinearLayoutManager = new LinearLayoutManager(this);
         mLinearLayoutManager.setStackFromEnd(true);
         mMessageRecyclerView.setLayoutManager(mLinearLayoutManager);
+
+        FirebaseDatabase.getInstance().setPersistenceEnabled(true);
 
         mFirebaseDatabaseReference = FirebaseDatabase.getInstance().getReference();
         mFirebaseAdapter = new FirebaseRecyclerAdapter<FriendlyMessage,
@@ -208,6 +213,12 @@ public class MainActivity extends AppCompatActivity
         // Fetch remote config.
         fetchConfig();
 
+        mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
+
+        // Request Ad
+        mAdView = (AdView) findViewById(R.id.adView);
+        AdRequest adRequest = new AdRequest.Builder().build();
+        mAdView.loadAd(adRequest);
 
         mMessageRecyclerView.setLayoutManager(mLinearLayoutManager);
         mMessageRecyclerView.setAdapter(mFirebaseAdapter);
@@ -257,16 +268,25 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public void onPause() {
+        if (mAdView != null) {
+            mAdView.pause();
+        }
         super.onPause();
     }
 
     @Override
     public void onResume() {
         super.onResume();
+        if (mAdView != null) {
+            mAdView.resume();
+        }
     }
 
     @Override
     public void onDestroy() {
+        if (mAdView != null) {
+            mAdView.destroy();
+        }
         super.onDestroy();
     }
 
@@ -280,6 +300,13 @@ public class MainActivity extends AppCompatActivity
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()) {
+            case R.id.crash_menu:
+                FirebaseCrash.logcat(Log.ERROR, TAG, "crash caused");
+                causeCrash();
+                return true;
+            case R.id.invite_menu:
+                sendInvitation();
+                return true;
             case R.id.fresh_config_menu:
                 fetchConfig();
                 return true;
@@ -301,6 +328,36 @@ public class MainActivity extends AppCompatActivity
         Toast.makeText(this, "Google Play Services error.", Toast.LENGTH_SHORT).show();
     }
 
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        Log.d(TAG, "onActivityResult: requestCode=" + requestCode +
+            ", resultCode=" + resultCode);
+        if (requestCode == REQUEST_INVITE) {
+            if (resultCode == RESULT_OK) {
+                Bundle payload = new Bundle();
+                payload.putString(FirebaseAnalytics.Param.VALUE, "sent");
+                mFirebaseAnalytics.logEvent(FirebaseAnalytics.Event.SHARE,
+                    payload);
+                // Check how many invitations were sent.
+                String[] ids = AppInviteInvitation
+                    .getInvitationIds(resultCode, data);
+                Log.d(TAG, "Invitations sent: " + ids.length);
+
+
+            } else {
+                Bundle payload = new Bundle();
+                payload.putString(FirebaseAnalytics.Param.VALUE, "not sent");
+                mFirebaseAnalytics.logEvent(FirebaseAnalytics.Event.SHARE,
+                    payload);
+                // Sending failed or it was canceled, show failure message to
+                // the user
+                Log.d(TAG, "Failed to send invitation.");
+            }
+        }
+
+
+    }
     // Fetch the config to determine the allowed length of messages.
     public void fetchConfig() {
         long cacheExpiration = 3600; // 1 hour in seconds
@@ -344,5 +401,17 @@ public class MainActivity extends AppCompatActivity
         mMessageEditText.setFilters(new InputFilter[]{new
                 InputFilter.LengthFilter(friendly_msg_length.intValue())});
         Log.d(TAG, "FML is: " + friendly_msg_length);
+    }
+
+    private void sendInvitation() {
+        Intent intent = new AppInviteInvitation.IntentBuilder(getString(R.string.invitation_title))
+            .setMessage(getString(R.string.invitation_message))
+            .setCallToActionText(getString(R.string.invitation_cta))
+            .build();
+        startActivityForResult(intent, REQUEST_INVITE);
+    }
+
+    private void causeCrash() {
+        throw new NullPointerException("Fake null pointer exception");
     }
 }
