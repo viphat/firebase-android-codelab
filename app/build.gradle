@@ -8,6 +8,9 @@ repositories {
 }
 
 android {
+    dataBinding {
+        enabled = true
+    }
     compileSdkVersion 23
     buildToolsVersion "23.0.3"
 
@@ -60,12 +63,6 @@ dependencies {
     // Firebase
     compile 'com.google.firebase:firebase-database:9.0.0'
     compile 'com.google.firebase:firebase-auth:9.0.0'
-    compile 'com.google.firebase:firebase-config:9.0.0'
-    compile 'com.google.android.gms:play-services-appinvite:9.0.0'
-    compile 'com.google.firebase:firebase-messaging:9.0.0'
-    compile 'com.google.android.gms:play-services-ads:9.0.0'
-    compile 'com.google.firebase:firebase-analytics:9.0.0'
-    compile 'com.google.firebase:firebase-crash:9.0.0'
     // Firebase UI
     compile 'com.firebaseui:firebase-ui-database:0.4.0'
     compile 'com.google.firebase:firebase-auth:9.0.0'
